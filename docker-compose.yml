@@ -49,7 +49,7 @@ services:
             timeout: 15s
             retries: 10
 
-    web:
+    server:
         restart: always
         build: .
         image: mlflow_server
