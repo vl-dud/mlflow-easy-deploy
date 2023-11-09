@@ -1,10 +1,13 @@
-# Docker Compose Setup for MLflow Tracking Server
+# MLflow Easy Deploy
+
+## Docker Compose Setup for MLflow Tracking Server
 
 This Docker Compose configuration is designed to create a development environment that includes the following services:
 
+- **MLflow Server**: An open-source platform for managing the end-to-end machine learning lifecycle.
 - **Minio**: An open-source object storage server compatible with Amazon S3.
 - **MySQL**: A popular relational database management system.
-- **MLflow Server**: An open-source platform for managing the end-to-end machine learning lifecycle.
+- **Ofelia**: A modern and low footprint job scheduler for docker environments.
 
 ## Prerequisites
 
@@ -45,7 +48,8 @@ Before using this Docker Compose setup, make sure you have the following prerequ
 
 ## Additional Notes
 
-- The minio-volume and db-volume volumes are created to persist data for Minio and MySQL, respectively. Data stored in these volumes will be retained across container restarts.
-- The health checks and dependencies between services ensure that each service is ready before the next one starts.
+- minio-volume and db-volume volumes are created to persist data for Minio and MySQL, respectively. Data stored in these volumes will be retained across container restarts.
+- Health checks and dependencies between services ensure that each service is ready before the next one starts.
+- Ofelia job scheduler is used to run `mlflow gc` every 6 hours. `mlflow gc` permanently deletes runs in the *deleted* lifecycle stage.
 
 Enjoy using this Docker Compose setup for your development or testing environment!
