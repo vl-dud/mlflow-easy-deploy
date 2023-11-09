@@ -50,6 +50,15 @@ services:
             timeout: 15s
             retries: 10
 
+    ofelia:
+        image: mcuadros/ofelia:latest
+        depends_on:
+            - server
+        container_name: mlflow_ofelia
+        command: daemon --docker
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+
     server:
         restart: always
         build: .
@@ -67,6 +76,10 @@ services:
             - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
             - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
         command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:${MYSQL_TCP_PORT}/${MYSQL_DATABASE} --default-artifact-root s3://mlflow/
+        labels:
+            ofelia.enabled: "true"
+            ofelia.job-exec.datecron.schedule: "@every 6h"
+            ofelia.job-exec.datecron.command: "mlflow gc --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:${MYSQL_TCP_PORT}/${MYSQL_DATABASE}"
 
 volumes:
     db-volume:
