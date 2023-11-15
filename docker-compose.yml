@@ -51,6 +51,7 @@ services:
             retries: 10
 
     ofelia:
+        restart: always
         image: mcuadros/ofelia:latest
         depends_on:
             - server
