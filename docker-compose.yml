@@ -13,18 +13,21 @@ services:
             - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID}
             - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY}
         volumes:
-            - minio-volume:/data
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:${MINIO_PORT}/minio/health/live"]
-            timeout: 15s
-            retries: 10
+            - minio_volume:/data
+
+    minio_healthcheck:
+        image: curlimages/curl
+        container_name: mlflow_minio_healthcheck
+        depends_on:
+            - minio
+        command: ["sh", "-c", "while ! curl -f http://minio:${MINIO_PORT}/minio/health/live; do sleep 10; done && exit 0"]
 
     mc:
         image: minio/mc
-        depends_on:
-            minio:
-                condition: service_healthy
         container_name: mlflow_mc
+        depends_on:
+            minio_healthcheck:
+                condition: service_completed_successfully
         environment:
             - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
             - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -44,7 +47,7 @@ services:
             - MYSQL_RANDOM_ROOT_PASSWORD=1
             - MYSQL_TCP_PORT=${MYSQL_TCP_PORT}
         volumes:
-            - db-volume:/var/lib/mysql
+            - db_volume:/var/lib/mysql
         healthcheck:
             test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
             timeout: 15s
@@ -83,5 +86,5 @@ services:
             ofelia.job-exec.datecron.command: "mlflow gc --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:${MYSQL_TCP_PORT}/${MYSQL_DATABASE}"
 
 volumes:
-    db-volume:
-    minio-volume:
+    db_volume:
+    minio_volume:
