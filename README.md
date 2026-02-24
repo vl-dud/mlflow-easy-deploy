@@ -6,7 +6,7 @@ This Docker Compose configuration is designed to create a development environmen
 
 - **MLflow Server**: An open-source platform for managing the end-to-end machine learning lifecycle.
 - **Minio**: An open-source object storage server compatible with Amazon S3.
-- **MySQL**: A popular relational database management system.
+- **PostgreSQL**: A popular relational database management system.
 - **Ofelia**: A modern and low footprint job scheduler for docker environments.
 
 ## Prerequisites
@@ -22,12 +22,12 @@ Before using this Docker Compose setup, make sure you have the following prerequ
 
 2. Customize the environment variables in the `.env` file to suit your needs. You can set the following environment variables:
 
+   - `DB_NAME`: Name of the PostgreSQL database.
+   - `DB_USER` and `DB_PASSWORD`: PostgreSQL user credentials.
+   - `DB_PORT`: Port for the PostgreSQL database.
    - `MINIO_PORT`: Port for the Minio server.
    - `MINIO_CONSOLE_PORT`: Port for the MinIO Console.
    - `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`: Access credentials for Minio.
-   - `MYSQL_DATABASE`: Name of the MySQL database.
-   - `MYSQL_USER` and `MYSQL_PASSWORD`: MySQL user credentials.
-   - `MYSQL_TCP_PORT`: Port for the MySQL database.
    - `MLFLOW_SERVER_PORT`: Port for the MLflow server.
 
 3. Run the following command to start the services defined in the `docker-compose.yml` file:
