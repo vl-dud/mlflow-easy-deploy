@@ -36,22 +36,25 @@ services:
 
     db:
         restart: always
-        image: mysql/mysql-server
+        image: postgres:17.8
         container_name: mlflow_db
         expose:
-            - ${MYSQL_TCP_PORT}
+            - "${DB_PORT}"
         environment:
-            - MYSQL_DATABASE=${MYSQL_DATABASE}
-            - MYSQL_USER=${MYSQL_USER}
-            - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-            - MYSQL_RANDOM_ROOT_PASSWORD=1
-            - MYSQL_TCP_PORT=${MYSQL_TCP_PORT}
+            - POSTGRES_DB=${DB_NAME}
+            - POSTGRES_USER=${DB_USER}
+            - POSTGRES_PASSWORD=${DB_PASSWORD}
         volumes:
             - db_volume:/var/lib/mysql
         healthcheck:
-            test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
-            timeout: 15s
-            retries: 10
+            test: [
+                "CMD-SHELL",
+                "pg_isready -U ${DB_USER} -d ${DB_NAME} -p ${DB_PORT}"
+            ]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 60s
 
     ofelia:
         restart: always
@@ -76,14 +79,15 @@ services:
         ports:
             - "${MLFLOW_SERVER_PORT}:5000"
         environment:
+            - MLFLOW_ENABLE_WORKSPACES=1
             - MLFLOW_S3_ENDPOINT_URL=http://minio:${MINIO_PORT}
             - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
             - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-        command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:${MYSQL_TCP_PORT}/${MYSQL_DATABASE} --default-artifact-root s3://mlflow/
+        command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/${DB_NAME} --default-artifact-root s3://mlflow/
         labels:
             ofelia.enabled: "true"
             ofelia.job-exec.datecron.schedule: "@every 6h"
-            ofelia.job-exec.datecron.command: "mlflow gc --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:${MYSQL_TCP_PORT}/${MYSQL_DATABASE}"
+            ofelia.job-exec.datecron.command: "mlflow gc --backend-store-uri postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/${DB_NAME}"
 
 volumes:
     db_volume:
