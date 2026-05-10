@@ -1,0 +1,54 @@
+services:
+    backend:
+        restart: always
+        image: postgres:17.8
+        container_name: mts_backend
+        expose:
+            - "${DB_PORT}"
+        environment:
+            - POSTGRES_DB=${DB_NAME}
+            - POSTGRES_USER=${DB_USER}
+            - POSTGRES_PASSWORD=${DB_PASSWORD}
+        volumes:
+            - mts_backend:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -p ${DB_PORT}"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 60s
+
+    backend_backup:
+        restart: always
+        image: postgres:17.8
+        container_name: mts_backend_backup
+        depends_on:
+            backend:
+                condition: service_healthy
+        environment:
+            - PGPASSWORD=${DB_PASSWORD}
+            - POSTGRES_DB=${DB_NAME}
+            - POSTGRES_USER=${DB_USER}
+        volumes:
+            - ./scripts/postgres/restore_backup.sh:/usr/local/bin/restore_backup.sh:ro
+            - mts_backend_backup:/backups
+        command: ["sleep", "infinity"]
+        labels:
+            ofelia.enabled: "true"
+            ofelia.job-exec.pgdump.schedule: "@every 12h"
+            ofelia.job-exec.pgdump.command: >
+                sh -c 'ts=$$(date +%Y-%m-%d_%H-%M-%S) &&
+                pg_dump -h backend -p ${DB_PORT} -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+                -Fc -f "/backups/$${POSTGRES_DB}_$${ts}.dump" &&
+                find /backups -type f -name "*.dump" -mtime +7 -delete'
+
+    server:
+        depends_on:
+            backend:
+                condition: service_healthy
+        environment:
+            - MLFLOW_BACKEND_STORE_URI=postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@backend:${DB_PORT}/${DB_NAME}
+
+volumes:
+    mts_backend:
+    mts_backend_backup:

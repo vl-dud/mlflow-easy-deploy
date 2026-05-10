@@ -2,10 +2,7 @@
 set -eu
 
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
-DB_HOST="${DB_HOST:-backend}"
-DB_PORT="${DB_PORT:-5432}"
-DB_USER="${POSTGRES_USER:?POSTGRES_USER is not set}"
-DB_NAME="${POSTGRES_DB:?POSTGRES_DB is not set}"
+DB_PATH="${DB_PATH:-/mlflow/mlflow.db}"
 
 if [ "$#" -gt 0 ] && [ -n "${1:-}" ]; then
   BACKUP_FILE="$1"
@@ -19,16 +16,15 @@ if [ "$#" -gt 0 ] && [ -n "${1:-}" ]; then
     exit 1
   fi
 else
-  BACKUP_FILE="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name '*.dump' | sort | tail -n 1)"
+  BACKUP_FILE="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name '*.db' | sort | tail -n 1)"
 
   if [ -z "$BACKUP_FILE" ]; then
-    echo "No .dump backup found in $BACKUP_DIR" >&2
+    echo "No .db backup found in $BACKUP_DIR" >&2
     exit 1
   fi
 fi
 
 echo "Restoring backup: $BACKUP_FILE"
-pg_restore -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-  --clean --if-exists "$BACKUP_FILE"
+cp "$BACKUP_FILE" "$DB_PATH"
 
 echo "Restore completed."

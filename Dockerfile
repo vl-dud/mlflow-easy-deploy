@@ -3,4 +3,6 @@ RUN pip install --no-cache-dir \
     boto3 \
 	cryptography \
     mlflow \
-    psycopg2-binary
+    psycopg2-binary \
+    pymysql \
+    pymssql

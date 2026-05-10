@@ -1,0 +1,56 @@
+services:
+    backend:
+        restart: always
+        image: mysql:8.4
+        container_name: mts_backend
+        expose:
+            - "${DB_PORT}"
+        environment:
+            - MYSQL_DATABASE=${DB_NAME}
+            - MYSQL_USER=${DB_USER}
+            - MYSQL_PASSWORD=${DB_PASSWORD}
+            - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+        volumes:
+            - mts_backend:/var/lib/mysql
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 60s
+
+    backend_backup:
+        restart: always
+        image: mysql:8.4
+        container_name: mts_backend_backup
+        depends_on:
+            backend:
+                condition: service_healthy
+        environment:
+            - MYSQL_PWD=${DB_PASSWORD}
+            - DB_NAME=${DB_NAME}
+            - DB_USER=${DB_USER}
+        volumes:
+            - ./scripts/mysql/restore_backup.sh:/usr/local/bin/restore_backup.sh:ro
+            - mts_backend_backup:/backups
+        command: ["sleep", "infinity"]
+        labels:
+            ofelia.enabled: "true"
+            ofelia.job-exec.mysqldump.schedule: "@every 12h"
+            ofelia.job-exec.mysqldump.command: >
+                sh -c 'ts=$$(date +%Y-%m-%d_%H-%M-%S) &&
+                mysqldump -h backend -P ${DB_PORT} -u "$$DB_USER" --no-tablespaces "$$DB_NAME"
+                > "/backups/$${DB_NAME}_$${ts}.sql" &&
+                gzip "/backups/$${DB_NAME}_$${ts}.sql" &&
+                find /backups -type f -name "*.sql.gz" -mtime +7 -delete'
+
+    server:
+        depends_on:
+            backend:
+                condition: service_healthy
+        environment:
+            - MLFLOW_BACKEND_STORE_URI=mysql+pymysql://${DB_USER}:${DB_PASSWORD}@backend:${DB_PORT}/${DB_NAME}
+
+volumes:
+    mts_backend:
+    mts_backend_backup:

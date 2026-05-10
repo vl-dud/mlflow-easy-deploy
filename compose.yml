@@ -55,48 +55,38 @@ services:
                 rm -rf "$$workdir" &&
                 find /backups -type f -name "minio_mlflow_*.tar.gz" -mtime +7 -delete'
 
-    db:
+    server:
         restart: always
-        image: postgres:17.8
-        container_name: mts_db
-        expose:
-            - "${DB_PORT}"
-        environment:
-            - POSTGRES_DB=${DB_NAME}
-            - POSTGRES_USER=${DB_USER}
-            - POSTGRES_PASSWORD=${DB_PASSWORD}
-        volumes:
-            - mts_db:/var/lib/postgresql/data
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -p ${DB_PORT}"]
-            interval: 60s
-            timeout: 5s
-            retries: 3
-            start_period: 60s
-
-    db_backup:
-        restart: always
-        image: postgres:17.8
-        container_name: mts_db_backup
+        build: .
+        image: mts_server
+        container_name: mts_server
         depends_on:
-            db:
-                condition: service_healthy
+            minio_client:
+                condition: service_started
+        ports:
+            - "${MLFLOW_SERVER_PORT}:5000"
         environment:
-            - PGPASSWORD=${DB_PASSWORD}
-            - POSTGRES_DB=${DB_NAME}
-            - POSTGRES_USER=${DB_USER}
-        volumes:
-            - ./scripts/postgres/restore_backup.sh:/usr/local/bin/restore_backup.sh:ro
-            - mts_db_backup:/backups
-        command: [ "sleep", "infinity" ]
+            - MLFLOW_ENABLE_WORKSPACES=1
+            - MLFLOW_DISABLE_TELEMETRY=1
+            - DO_NOT_TRACK=1
+            - MLFLOW_S3_ENDPOINT_URL=http://minio:${MINIO_PORT}
+            - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+        command:
+            - mlflow
+            - server
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "5000"
+            - --backend-store-uri
+            - ${MLFLOW_BACKEND_STORE_URI}
+            - --default-artifact-root
+            - ${DEFAULT_ARTIFACT_ROOT}
         labels:
             ofelia.enabled: "true"
-            ofelia.job-exec.pgdump.schedule: "@every 12h"
-            ofelia.job-exec.pgdump.command: >
-                sh -c 'ts=$$(date +%Y-%m-%d_%H-%M-%S) && 
-                pg_dump -h db -p 5432 
-                -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -Fc -f "/backups/$${POSTGRES_DB}_$${ts}.dump" && 
-                find /backups -type f -name "*.dump" -mtime +7 -delete'
+            ofelia.job-exec.datecron.schedule: "@every 24h"
+            ofelia.job-exec.datecron.command: "mlflow gc --all-workspaces --backend-store-uri ${MLFLOW_BACKEND_STORE_URI} --tracking-uri=127.0.0.1:5000"
 
     ofelia:
         restart: always
@@ -108,38 +98,6 @@ services:
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
 
-    server:
-        restart: always
-        build: .
-        image: mts_server
-        container_name: mts_server
-        depends_on:
-            minio_client:
-                condition: service_started
-            db:
-                condition: service_healthy
-        ports:
-            - "${MLFLOW_SERVER_PORT}:5000"
-        environment:
-            - MLFLOW_ENABLE_WORKSPACES=1
-            - MLFLOW_DISABLE_TELEMETRY=1
-            - DO_NOT_TRACK=1
-            - MLFLOW_S3_ENDPOINT_URL=http://minio:${MINIO_PORT}
-            - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-            - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-        command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri
-            postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/${DB_NAME}
-            --default-artifact-root ${DEFAULT_ARTIFACT_ROOT}
-        labels:
-            ofelia.enabled: "true"
-            ofelia.job-exec.datecron.schedule: "@every 24h"
-            ofelia.job-exec.datecron.command: "mlflow gc --all-workspaces
-                --backend-store-uri
-                postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/$\
-                {DB_NAME} --tracking-uri=127.0.0.1:5000"
-
 volumes:
-    mts_db:
-    mts_db_backup:
     mts_minio:
     mts_minio_backup:

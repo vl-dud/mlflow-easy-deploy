@@ -1,0 +1,60 @@
+services:
+    backend:
+        restart: always
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        container_name: mts_backend
+        expose:
+            - "${DB_PORT}"
+        environment:
+            - ACCEPT_EULA=Y
+            - MSSQL_SA_PASSWORD=${DB_SA_PASSWORD}
+            - MSSQL_PID=Developer
+            - DB_PORT=${DB_PORT}
+            - DB_NAME=${DB_NAME}
+            - DB_USER=${DB_USER}
+            - DB_PASSWORD=${DB_PASSWORD}
+        volumes:
+            - mts_backend:/var/opt/mssql
+            - mts_backend_backup:/backups
+            - ./scripts/mssql/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+        command: ["/bin/bash", "/usr/local/bin/entrypoint.sh"]
+        healthcheck:
+            test: ["CMD-SHELL", "test -f /var/opt/mssql/.init_done && /opt/mssql-tools18/bin/sqlcmd -S localhost,${DB_PORT} -U sa -P \"${DB_SA_PASSWORD}\" -C -Q \"SELECT 1\" -b"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+
+    backend_backup:
+        restart: always
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        container_name: mts_backend_backup
+        depends_on:
+            backend:
+                condition: service_healthy
+        environment:
+            - DB_SA_PASSWORD=${DB_SA_PASSWORD}
+            - DB_NAME=${DB_NAME}
+        volumes:
+            - ./scripts/mssql/restore_backup.sh:/usr/local/bin/restore_backup.sh:ro
+            - mts_backend_backup:/backups
+        command: ["sleep", "infinity"]
+        labels:
+            ofelia.enabled: "true"
+            ofelia.job-exec.mssqlbackup.schedule: "@every 12h"
+            ofelia.job-exec.mssqlbackup.command: >
+                sh -c 'ts=$$(date +%Y-%m-%d_%H-%M-%S) &&
+                bakfile="/backups/$${DB_NAME}_$${ts}.bak" &&
+                /opt/mssql-tools18/bin/sqlcmd -S backend,${DB_PORT} -U sa -P "$$DB_SA_PASSWORD" -C -Q "BACKUP DATABASE [$$DB_NAME] TO DISK = N'"'"'$$bakfile'"'"' WITH FORMAT, INIT, COMPRESSION, STATS = 10" &&
+                find /backups -type f -name "*.bak" -mtime +7 -delete'
+
+    server:
+        depends_on:
+            backend:
+                condition: service_healthy
+        environment:
+            - MLFLOW_BACKEND_STORE_URI=mssql+pymssql://${DB_USER}:${DB_PASSWORD}@backend:${DB_PORT}/${DB_NAME}
+
+volumes:
+    mts_backend:
+    mts_backend_backup:

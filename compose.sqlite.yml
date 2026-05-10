@@ -1,0 +1,26 @@
+services:
+    backend_backup:
+        image: alpine:3.20
+        container_name: mts_backend_backup
+        volumes:
+            - ./scripts/sqlite/restore_backup.sh:/usr/local/bin/restore_backup.sh:ro
+            - mts_sqlite:/mlflow
+            - mts_backend_backup:/backups
+        command: ["sleep", "infinity"]
+        labels:
+            ofelia.enabled: "true"
+            ofelia.job-exec.sqlitebackup.schedule: "@every 12h"
+            ofelia.job-exec.sqlitebackup.command: >
+                sh -c 'ts=$$(date +%Y-%m-%d_%H-%M-%S) &&
+                cp /mlflow/mlflow.db "/backups/mlflow_$${ts}.db" &&
+                find /backups -type f -name "*.db" -mtime +7 -delete'
+
+    server:
+        environment:
+            - MLFLOW_BACKEND_STORE_URI=sqlite:////mlflow/mlflow.db
+        volumes:
+            - mts_sqlite:/mlflow
+
+volumes:
+    mts_sqlite:
+    mts_backend_backup:
