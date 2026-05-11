@@ -36,13 +36,11 @@ Copy `.env.example` to `.env` and adjust before first run. Change all secrets be
 | `AWS_SECRET_ACCESS_KEY`   | MinIO root password / S3 secret for MLflow.                                           | `minio_secret`                                                     |
 | `MINIO_PORT`              | MinIO S3 API port.                                                                    | `9000`                                                             |
 | `MINIO_CONSOLE_PORT`      | MinIO web console port.                                                               | `9090`                                                             |
-| `DB_PORT`                 | Database port inside the stack.                                                       | `5432` / `3306`                                                    |
+| `DB_PORT`                 | Database port inside the stack.                                                       | `5432`                                                    |
 | `DB_NAME`                 | MLflow metadata database name.                                                        | `mlflow_database`                                                  |
 | `DB_USER`                 | MLflow database user.                                                                 | `mlflow_user`                                                      |
-| `DB_PASSWORD`             | Password for `DB_USER`.                                                               | `mlflow`                                                           |
-| `DB_ROOT_PASSWORD`        | MySQL root password (MySQL only).                                                     | `mlflow_root`                                                      |
-| `DB_SA_PASSWORD`          | SQL Server SA password (MSSQL only). Must meet SQL Server complexity requirements.    | `Mlflow_SA_P@ss1`                                                  |
-| `MLFLOW_BACKEND_STORE_URI`| SQLAlchemy URI for `mlflow server --backend-store-uri`.                               | `postgresql+psycopg2://mlflow_user:mlflow@db:5432/mlflow_database` |
+| `DB_PASSWORD`             | Password for `DB_USER`.                                                               | `mlflow`                                                           |                                               |
+| `MLFLOW_BACKEND_STORE_URI`| SQLAlchemy URI for `mlflow server --backend-store-uri`.                               | Depends on the database |
 | `DEFAULT_ARTIFACT_ROOT`   | Artifact root; must match the bucket created by **minio_client**.                     | `s3://mlflow/`                                                     |
 | `MLFLOW_SERVER_PORT`      | Host port for the MLflow UI/API.                                                      | `5000`                                                             |
 
